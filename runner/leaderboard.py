@@ -400,7 +400,7 @@ def subjectives(entry):
 
 def publish(entries, root):
     # Validate both marker blocks before writing any generated public files.
-    for name in ('README.md', 'README.en.md'):
+    for name in ('README.md', 'README.zh.md'):
         content = (root / name).read_text(encoding='utf-8')
         if content.count(START) != 1 or content.count(END) != 1 or content.index(START) > content.index(END):
             raise ValueError(f'{name} must have exactly one {START} … {END} block')
@@ -435,8 +435,10 @@ def publish(entries, root):
     (archive / 'README.md').write_text('\n'.join(index) + '\n', encoding='utf-8')
     zh_entries = [e for e in entries if e['language'] == 'zh']
     en_entries = [e for e in entries if e['language'] == 'en']
-    update_readme(root / 'README.md', render(zh_entries, 'zh', response_links=True, compact=True))
-    update_readme(root / 'README.en.md', render(en_entries, 'en', response_links=True, compact=True))
+    update_readme(root / 'README.zh.md', render(zh_entries, 'zh', response_links=True, compact=True))
+    # README.md is the default GitHub page and is in English: it shows every paper's board (one cohort per paper
+    # language), so Chinese-paper results stay visible before any English runs exist.
+    update_readme(root / 'README.md', render(entries, 'en', response_links=True, compact=True))
     zh = render(zh_entries, 'zh', response_links=True)
     en = render(en_entries, 'en', response_links=True)
     full = '# 交差了么 · 榜单 / Did It Deliver? Leaderboards\n\n## 中文卷榜单\n\n' + zh + '\n\n## English paper leaderboard\n\n' + en + '\n'
@@ -467,7 +469,7 @@ def main():
     try:
         if args.update_readme:
             publish(entries, ROOT)
-            print('Updated README.md, README.en.md, LEADERBOARD.md and subjective/')
+            print('Updated README.md, README.zh.md, LEADERBOARD.md and subjective/')
         text = render(entries, args.language)
         if args.out:
             args.out.write_text(text + '\n', encoding='utf-8')

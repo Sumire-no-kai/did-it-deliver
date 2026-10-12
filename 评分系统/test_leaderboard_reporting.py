@@ -17,7 +17,7 @@ class ReportingTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.results = self.root / 'results'
         self.results.mkdir()
-        for name in ('README.md', 'README.en.md'):
+        for name in ('README.md', 'README.zh.md'):
             (self.root / name).write_text('intro\n' + board.START + '\nold\n' + board.END + '\noutro\n', encoding='utf-8')
 
     def summary(self, model='fixture-zh', language='zh'):
@@ -100,18 +100,21 @@ class ReportingTests(unittest.TestCase):
         self.assertNotIn('](subjective/', text)
 
     def test_publication_keeps_language_boards_separate_and_links_resolve(self):
+        # README.zh.md is Chinese-paper-only; the default English README.md shows every paper, one cohort per language.
         self.save('zh-session', self.summary())
         english = self.summary('fixture-en', 'en')
         english['objective']['mean'] = 40
         self.save('en-session', english)
         entries = board.collect(self.results)
         board.publish(entries, self.root)
-        chinese = (self.root / 'README.md').read_text()
-        english = (self.root / 'README.en.md').read_text()
+        chinese = (self.root / 'README.zh.md').read_text()
+        english = (self.root / 'README.md').read_text()
         self.assertIn('fixture-zh', chinese)
         self.assertNotIn('fixture-en', chinese)
         self.assertIn('fixture-en', english)
-        self.assertNotIn('fixture-zh', english)
+        self.assertIn('fixture-zh', english)
+        zh_cohort, en_cohort = english.split('Cohort: ')[1:3]                         # one cohort per paper language
+        self.assertNotEqual('fixture-en' in zh_cohort, 'fixture-en' in en_cohort)
         full = (self.root / 'LEADERBOARD.md').read_text()
         zh, en = full.split('## 中文卷榜单\n\n', 1)[1].split('## English paper leaderboard\n\n', 1)
         self.assertNotIn('fixture-en', zh)
@@ -178,17 +181,17 @@ class ReportingTests(unittest.TestCase):
         self.assertIn('Lower', rows[1].split('|')[3])
 
     def test_publish_validates_both_readmes_before_writing(self):
-        (self.root / 'README.en.md').write_text('no markers')
+        (self.root / 'README.zh.md').write_text('no markers')
         before = (self.root / 'README.md').read_text()
-        with self.assertRaisesRegex(ValueError, 'README.en.md'):
+        with self.assertRaisesRegex(ValueError, 'README.zh.md'):
             board.publish([], self.root)
         self.assertEqual((self.root / 'README.md').read_text(), before)
         self.assertFalse((self.root / 'subjective').exists())
 
     def test_empty_publication_has_no_fabricated_results(self):
         board.publish([], self.root)
-        self.assertIn('暂无榜单数据', (self.root / 'README.md').read_text())
-        self.assertIn('No leaderboard data', (self.root / 'README.en.md').read_text())
+        self.assertIn('暂无榜单数据', (self.root / 'README.zh.md').read_text())
+        self.assertIn('No leaderboard data', (self.root / 'README.md').read_text())
         self.assertIn('No Q21 responses yet', (self.root / 'subjective/README.md').read_text())
         self.assertEqual(list((self.root / 'subjective').glob('session-*.md')), [])
 
