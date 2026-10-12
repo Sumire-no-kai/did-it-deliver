@@ -55,7 +55,7 @@ class ClaudeRefusalHandler(BaseHTTPRequestHandler):
         self.rfile.read(int(self.headers['Content-Length']))
         self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
         for name,data in (('message_start',{'type':'message_start','message':{'model':'claude-refusing','usage':{'input_tokens':5}}}),
-                          ('message_delta',{'type':'message_delta','delta':{'stop_reason':'refusal'},'usage':{'output_tokens':0}}),
+                          ('message_delta',{'type':'message_delta','delta':{'stop_reason':'refusal','stop_details':{'type':'refusal','category':'cyber'}},'usage':{'output_tokens':0}}),
                           ('message_stop',{'type':'message_stop'})):
             self.wfile.write(f'event: {name}\ndata: {json.dumps(data)}\n\n'.encode());self.wfile.flush()
 
@@ -68,7 +68,7 @@ class ProviderTests(unittest.TestCase):
         try:
             client=api.Client(api.validate_config({'provider':'claude','base_url':f'http://127.0.0.1:{server.server_port}/v1'}),'FAKE_TEST_KEY')
             text,meta=client.complete('claude-fixture-a','test-prompt')
-            self.assertEqual((text,meta['finish_reason']),('','refusal'))
+            self.assertEqual((text,meta['finish_reason'],meta['refusal_category']),('','refusal','cyber'))
         finally:
             server.shutdown();server.server_close();thread.join()
 

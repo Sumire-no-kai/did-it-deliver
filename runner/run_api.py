@@ -230,6 +230,13 @@ def run_diagnostics(manifest,reports):
     return result,text
 
 
+def refusal_category(details):
+    """The category a Claude safety refusal reports (e.g. "cyber"); kept so a refused question can be traced."""
+    if type(details) is dict and type(details.get('category')) is str and len(details['category'])<=64:
+        return details['category']
+    return None
+
+
 class Client:
     def __init__(self, config, key):
         self.config=config
@@ -359,10 +366,15 @@ class Client:
                 raise APIError('No Claude message content')
             text=''.join(block['text'] for block in blocks if type(block) is dict and block.get('type')=='text' and type(block.get('text')) is str)
             usage=result.get('usage',{}) if type(result.get('usage')) is dict else {}
-            return self.finish(text,{'returned_model':result.get('model') if type(result.get('model')) is str else None,
-                         'finish_reason':result.get('stop_reason') if type(result.get('stop_reason')) is str else None,
-                         'usage':usage_of(usage.get('input_tokens'),usage.get('output_tokens'))},'No visible Claude answer text')
+            metadata={'returned_model':result.get('model') if type(result.get('model')) is str else None,
+                      'finish_reason':result.get('stop_reason') if type(result.get('stop_reason')) is str else None,
+                      'usage':usage_of(usage.get('input_tokens'),usage.get('output_tokens'))}
+            category=refusal_category(result.get('stop_details'))
+            if category:
+                metadata['refusal_category']=category
+            return self.finish(text,metadata,'No visible Claude answer text')
         parts,returned,stop,input_tokens,output_tokens,finished=[],None,None,None,None,False
+        category=None
         for name,event in self.events(self._open('/messages',body,stream=True)):
             if type(event) is not dict:
                 continue
@@ -376,6 +388,7 @@ class Client:
             elif kind=='message_delta':
                 delta=event.get('delta') if type(event.get('delta')) is dict else {}
                 stop=delta.get('stop_reason') if type(delta.get('stop_reason')) is str else stop
+                category=refusal_category(delta.get('stop_details')) or category
                 output_tokens=(event.get('usage') or {}).get('output_tokens',output_tokens)
             elif kind=='message_stop':
                 finished=True
@@ -383,7 +396,10 @@ class Client:
                 raise APIError('Provider reported an error while streaming')
         if not finished and stop is None:
             raise APIError('Stream ended before the model finished; no automatic generation retry')
-        return self.finish(''.join(parts),{'returned_model':returned,'finish_reason':stop,'usage':usage_of(input_tokens,output_tokens)},'No visible Claude answer text')
+        metadata={'returned_model':returned,'finish_reason':stop,'usage':usage_of(input_tokens,output_tokens)}
+        if category:
+            metadata['refusal_category']=category
+        return self.finish(''.join(parts),metadata,'No visible Claude answer text')
 
     def complete_chat(self, body):
         message_text='No visible answer text; reasoning-only or tool-only output is not a completed test'
