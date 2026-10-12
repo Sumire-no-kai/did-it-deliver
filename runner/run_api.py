@@ -336,11 +336,12 @@ class Client:
 
     @staticmethod
     def finish(text, metadata, message):
-        """Visible text is required. The one exception: output cut off by the length limit with nothing visible
-        (the whole budget went into reasoning) is a truncated run with an empty card, not a technical failure."""
+        """Visible text is required, with two exceptions that are the model's own outcome, not a technical failure:
+        output cut off by the length limit with nothing visible (the whole budget went into reasoning) is a truncated
+        answer, and a refusal by the provider's safety layer is an empty answer. Both score 0 for that question only."""
         if text.strip():
             return text,metadata
-        if metadata['finish_reason'] in ('length','max_tokens'):
+        if metadata['finish_reason'] in ('length','max_tokens','refusal','content_filter'):
             return '',metadata
         raise APIError(message)
 

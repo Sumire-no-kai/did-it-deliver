@@ -49,7 +49,29 @@ class ClaudeStreamHandler(BaseHTTPRequestHandler):
             event('message_stop',{'type':'message_stop'})
 
 
+class ClaudeRefusalHandler(BaseHTTPRequestHandler):
+    def log_message(self,*args):pass
+    def do_POST(self):
+        self.rfile.read(int(self.headers['Content-Length']))
+        self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
+        for name,data in (('message_start',{'type':'message_start','message':{'model':'claude-refusing','usage':{'input_tokens':5}}}),
+                          ('message_delta',{'type':'message_delta','delta':{'stop_reason':'refusal'},'usage':{'output_tokens':0}}),
+                          ('message_stop',{'type':'message_stop'})):
+            self.wfile.write(f'event: {name}\ndata: {json.dumps(data)}\n\n'.encode());self.wfile.flush()
+
+
 class ProviderTests(unittest.TestCase):
+    def test_claude_refusal_is_an_empty_answer_not_a_failure(self):
+        # A safety-layer refusal is the model's outcome for this question (scored 0), not a missing request.
+        server=ThreadingHTTPServer(('127.0.0.1',0),ClaudeRefusalHandler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            client=api.Client(api.validate_config({'provider':'claude','base_url':f'http://127.0.0.1:{server.server_port}/v1'}),'FAKE_TEST_KEY')
+            text,meta=client.complete('claude-fixture-a','test-prompt')
+            self.assertEqual((text,meta['finish_reason']),('','refusal'))
+        finally:
+            server.shutdown();server.server_close();thread.join()
+
     def test_native_claude_streaming(self):
         server=ThreadingHTTPServer(('127.0.0.1',0),ClaudeStreamHandler)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
