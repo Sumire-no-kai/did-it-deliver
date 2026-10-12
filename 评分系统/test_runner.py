@@ -1061,8 +1061,10 @@ class LeaderboardTests(unittest.TestCase):
 
     def test_model_names_are_shown_in_their_formal_spelling_with_the_api_id_kept(self):
         board = api.leaderboard
+        # Apart from the Gemini/Gemma overrides, these IDs are absent from runner/model_names.json, so they exercise the
+        # automatic spelling and adding real model names there cannot break this test.
         for raw, shown in (('models/gemini-3.1-flash-lite', 'Gemini 3.1 Flash-Lite'), ('gpt-7.2-nova', 'GPT 7.2 Nova'), ('glm-9.9-air', 'GLM 9.9 Air'),
-                           ('deepseek-chat', 'DeepSeek Chat'), ('claude-opus-5-5', 'Claude Opus 5.5'), ('claude-haiku-4-5-20251001', 'Claude Haiku 4.5 (2025-10-01)'),
+                           ('deepseek-chat', 'DeepSeek Chat'), ('claude-opus-5-5', 'Claude Opus 5.5'), ('claude-haiku-3-9-20990101', 'Claude Haiku 3.9 (2099-01-01)'),
                            ('kimi-k2-thinking', 'Kimi K2 Thinking'), ('models/gemma-4-26b-a4b-it', 'Gemma 4 26B A4B (Instruct)')):
             self.assertEqual(board.display_model(raw), shown, raw)
         self.assertEqual(board.display_provider('gemini'), 'Google')
